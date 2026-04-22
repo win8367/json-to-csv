@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>항공기정비기능사 통합 데이터 관리 도구</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen pb-12">
+    <div class="max-w-4xl mx-auto px-4 pt-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">🛠️ 항공기정비기능사 데이터 관리</h1>
+            <p class="text-slate-500 mt-2">CSV ↔ JSON 변환 및 데이터 병합 통합 도구</p>
+        </header>
+
+        <!-- 탭 메뉴 -->
+        <div class="flex border-b border-slate-200 mb-6 bg-white rounded-t-xl">
+            <button onclick="switchTab('convert')" id="tab-convert" class="flex-1 py-4 font-bold text-sm tab-active">쌍방향 변환 (CSV ↔ JSON)</button>
+            <button onclick="switchTab('merge')" id="tab-merge" class="flex-1 py-4 font-bold text-sm text-slate-400">JSON 데이터 합치기</button>
+        </div>
+
+        <!-- 1. 쌍방향 변환 섹션 -->
+        <div id="section-convert" class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="bg-blue-100 text-blue-600 p-1 rounded">01</span>
+                    파일 업로드 (CSV 또는 JSON)
+                </h2>
+                <div class="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-8 hover:border-blue-400 transition-colors cursor-pointer bg-slate-50" onclick="document.getElementById('convertInput').click()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span class="text-sm font-semibold text-slate-600">파일을 선택하거나 드래그하세요</span>
+                    <p class="text-xs text-slate-400 mt-1">.csv (Excel) 또는 .json (Data)</p>
+                    <input type="file" id="convertInput" class="hidden" accept=".csv,.json">
+                </div>
+
+                <div class="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                    <p class="text-xs text-blue-700 font-bold mb-2">✅ 자동 필드 매핑 안내</p>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-blue-600">
+                        <span>• 질문: question → <b>q</b></span>
+                        <span>• 이미지: image_url → <b>imgUrl</b></span>
+                        <span>• 정답: correct_index → <b>correct</b></span>
+                        <span>• 외부링크: <b>eurl</b></span>
+                        <span>• 해설: explanation → <b>exp</b></span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="convertResult" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+                    <div class="p-4 bg-slate-800 text-white flex justify-between items-center">
+                        <div>
+                            <span id="resType" class="bg-blue-500 text-[10px] px-2 py-0.5 rounded mr-2 uppercase font-bold">JSON</span>
+                            <span class="text-sm font-medium">변환 결과 (<span id="resCount">0</span>건)</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="copyBtn" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg transition-colors">복사</button>
+                            <button id="downloadBtn" class="text-xs bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-lg transition-colors font-bold">다운로드</button>
+                        </div>
+                    </div>
+                    <pre id="previewArea" class="p-6 text-[11px] text-emerald-400 bg-slate-900 h-80 overflow-auto font-mono custom-scrollbar leading-relaxed"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. JSON 합치기 섹션 -->
+        <div id="section-merge" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="bg-indigo-100 text-indigo-600 p-1 rounded">01</span>
+                    여러 JSON 파일 선택
+                </h2>
+                <input type="file" id="mergeInput" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer" accept=".json" multiple>
+                
+                <div id="fileListArea" class="mt-4 hidden space-y-2">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">선택된 파일 목록</p>
+                    <div id="fileItems" class="max-h-32 overflow-auto custom-scrollbar border border-slate-100 rounded-lg p-2 space-y-1"></div>
+                </div>
+
+                <button id="startMergeBtn" class="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-100 transition-all active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none">
+                    데이터 병합 시작하기
+                </button>
+            </div>
+
+            <div id="mergeResult" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div class="bg-slate-800 rounded-2xl p-6 text-white text-center">
+                    <p class="text-xs opacity-70 mb-1">총 병합된 문항</p>
+                    <p class="text-3xl font-black mb-4"><span id="mergedTotal">0</span>개</p>
+                    <div class="flex gap-3">
+                        <button id="mergedCopyBtn" class="flex-1 bg-emerald-500 hover:bg-emerald-600 py-3 rounded-xl font-bold">결과 복사</button>
+                        <button id="mergedDownloadBtn" class="flex-1 bg-white text-slate-900 hover:bg-slate-100 py-3 rounded-xl font-bold">JSON 파일 저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-6 py-3 rounded-full text-sm font-medium hidden z-50 animate-in fade-in slide-in-from-bottom-2">
+            작업이 완료되었습니다!
+        </div>
+    </div>
+
+    <script>
+        let currentResultData = null;
+        let currentResultType = 'json';
+        let mergePool = [];
+
+        function switchTab(tab) {
+            const convert = document.getElementById('section-convert');
+            const merge = document.getElementById('section-merge');
+            const tabC = document.getElementById('tab-convert');
+            const tabM = document.getElementById('tab-merge');
+
+            if(tab === 'convert') {
+                convert.classList.remove('hidden');
+                merge.classList.add('hidden');
+                tabC.classList.add('tab-active');
+                tabC.classList.remove('text-slate-400');
+                tabM.classList.remove('tab-active');
+                tabM.classList.add('text-slate-400');
+            } else {
+                convert.classList.add('hidden');
+                merge.classList.remove('hidden');
+                tabM.classList.add('tab-active');
+                tabM.classList.remove('text-slate-400');
+                tabC.classList.remove('tab-active');
+                tabC.classList.add('text-slate-400');
+            }
+        }
+
+        // CSV 파서 (RFC 4180 준수)
+        function parseCSV(text) {
+            const result = [];
+            let row = [];
+            let field = '';
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const nextChar = text[i+1];
+                if (inQuotes) {
+                    if (char === '"' && nextChar === '"') { field += '"'; i++; }
+                    else if (char === '"') { inQuotes = false; }
+                    else { field += char; }
+                } else {
+                    if (char === '"') { inQuotes = true; }
+                    else if (char === ',') { row.push(field); field = ''; }
+                    else if (char === '\n' || char === '\r') {
+                        row.push(field);
+                        if (row.length > 1 || row[0] !== '') result.push(row);
+                        row = []; field = '';
+                        if (char === '\r' && nextChar === '\n') i++;
+                    } else { field += char; }
+                }
+            }
+            if (field || row.length > 0) { row.push(field); result.push(row); }
+            return result;
+        }
+
+        // 강력한 JSON 파서 (수식 내 백슬래시 처리)
+        function robustJsonParse(str) {
+            str = str.trim().replace(/^\ufeff/, "");
+            try {
+                return JSON.parse(str);
+            } catch (e) {
+                console.warn("표준 파싱 실패, 교정 시도...");
+                // 모든 백슬래시를 이중화한 뒤 유효한 이스케이프만 복구
+                let fixed = str.replace(/\\/g, "\\\\")
+                               .replace(/\\\\"/g, "\\\"")
+                               .replace(/\\\\n/g, "\\n")
+                               .replace(/\\\\r/g, "\\r")
+                               .replace(/\\\\t/g, "\\t");
+                return JSON.parse(fixed);
+            }
+        }
+
+        // JSON to CSV 변환 (BOM 포함)
+        function jsonToCSV(json) {
+            if (!json || json.length === 0) return "";
+            const headers = ["id", "year", "session", "category", "q", "options__001", "options__002", "options__003", "options__004", "correct", "exp", "imgUrl", "eurl"];
+            const rows = json.map(item => {
+                const q = item.q || item.question || "";
+                const opts = item.options || [];
+                const exp = item.exp || item.explanation || "";
+                const img = item.imgUrl || item.image_url || "";
+                const eurl = item.eurl || "";
+                const correct = item.correct !== undefined ? item.correct : (item.correct_index !== undefined ? item.correct_index : 0);
+                
+                return [
+                    item.id, item.year, item.session, item.category, q,
+                    opts[0] || "", opts[1] || "", opts[2] || "", opts[3] || "",
+                    correct, exp, img, eurl
+                ].map(val => `"${String(val || "").replace(/"/g, '""')}"`).join(",");
+            });
+            return "\uFEFF" + headers.join(",") + "\n" + rows.join("\n");
+        }
+
+        document.getElementById('convertInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const content = ev.target.result;
+                if (file.name.toLowerCase().endsWith('.csv')) {
+                    const rows = parseCSV(content);
+                    const header = rows[0].map(h => h.toLowerCase().trim());
+                    const getIdx = (name) => header.indexOf(name);
+                    
+                    const idx = {
+                        id: getIdx('id'), year: getIdx('year'), session: getIdx('session'),
+                        cat: getIdx('category'), q: getIdx('q'), 
+                        o1: getIdx('options__001'), o2: getIdx('options__002'),
+                        o3: getIdx('options__003'), o4: getIdx('options__004'),
+                        cor: getIdx('correct'), exp: getIdx('exp'), 
+                        img: getIdx('imgurl'), eurl: getIdx('eurl')
+                    };
+
+                    const data = rows.slice(1).map((r, i) => {
+                        if (!r[idx.q]) return null;
+                        const item = {
+                            id: r[idx.id] || (i + 1),
+                            year: r[idx.year] || "",
+                            session: r[idx.session] || "",
+                            category: r[idx.cat] || "",
+                            q: r[idx.q].trim(),
+                            options: [r[idx.o1] || "", r[idx.o2] || "", r[idx.o3] || "", r[idx.o4] || ""],
+                            correct: parseInt(r[idx.cor]) || 0,
+                            exp: (r[idx.exp] || "").replace(/\[\d+\]$/, "").trim(),
+                            imgUrl: r[idx.img] || "",
+                            eurl: idx.eurl !== -1 ? r[idx.eurl] || "" : ""
+                        };
+                        return item;
+                    }).filter(x => x !== null);
+
+                    currentResultData = JSON.stringify(data, null, 2);
+                    currentResultType = 'json';
+                    updatePreview(data.length, 'JSON', currentResultData);
+                } else {
+                    try {
+                        const json = robustJsonParse(content);
+                        currentResultData = jsonToCSV(json);
+                        currentResultType = 'csv';
+                        updatePreview(json.length, 'CSV (Excel)', currentResultData);
+                    } catch(err) { alert("JSON 파싱 실패: " + err.message); }
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        function updatePreview(count, type, data) {
+            document.getElementById('resCount').textContent = count.toLocaleString();
+            document.getElementById('resType').textContent = type;
+            document.getElementById('previewArea').textContent = data;
+            document.getElementById('convertResult').classList.remove('hidden');
+        }
+
+        document.getElementById('mergeInput').addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            const listArea = document.getElementById('fileListArea');
+            const items = document.getElementById('fileItems');
+            items.innerHTML = "";
+            listArea.classList.remove('hidden');
+            
+            files.forEach(f => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between bg-slate-50 p-2 rounded text-[11px]";
+                div.innerHTML = `<span class="text-slate-600 font-medium">${f.name}</span><span class="text-slate-400">${(f.size/1024).toFixed(1)} KB</span>`;
+                items.appendChild(div);
+            });
+        });
+
+        document.getElementById('startMergeBtn').addEventListener('click', async function() {
+            const files = document.getElementById('mergeInput').files;
+            if (files.length === 0) return;
+
+            let combined = [];
+            for (const file of files) {
+                const text = await file.text();
+                try {
+                    const json = robustJsonParse(text);
+                    combined = combined.concat(json);
+                } catch(e) { console.error(`${file.name} 처리 실패`, e); }
+            }
+
+            document.getElementById('mergedTotal').textContent = combined.length.toLocaleString();
+            document.getElementById('mergeResult').classList.remove('hidden');
+            currentResultData = JSON.stringify(combined, null, 2);
+            showToast("병합이 완료되었습니다.");
+        });
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        const copyAction = (id) => {
+            const el = document.createElement('textarea');
+            el.value = currentResultData;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast("클립보드에 복사되었습니다.");
+        };
+
+        const downloadAction = (ext) => {
+            const blob = new Blob([currentResultData], { type: ext === 'json' ? 'application/json' : 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `aircraft_data_${new Date().getTime()}.${ext}`;
+            a.click();
+            showToast("파일이 저장되었습니다.");
+        };
+
+        document.getElementById('copyBtn').addEventListener('click', copyAction);
+        document.getElementById('mergedCopyBtn').addEventListener('click', copyAction);
+        document.getElementById('downloadBtn').addEventListener('click', () => downloadAction(currentResultType));
+        document.getElementById('mergedDownloadBtn').addEventListener('click', () => downloadAction('json'));
+    </script>
+</body>
+</html>
