@@ -18,7 +18,7 @@
     <div class="max-w-4xl mx-auto px-4 pt-8">
         <header class="text-center mb-8">
             <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">🛠️ 항공기정비기능사 데이터 관리</h1>
-            <p class="text-slate-500 mt-2">CSV ↔ JSON 변환 및 데이터 병합 통합 도구</p>
+            <p class="text-slate-500 mt-2">CSV (18개 필드 지원) ↔ JSON 변환 및 병합 도구</p>
         </header>
 
         <!-- 탭 메뉴 -->
@@ -39,18 +39,23 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <span class="text-sm font-semibold text-slate-600">파일을 선택하거나 드래그하세요</span>
-                    <p class="text-xs text-slate-400 mt-1">.csv (Excel) 또는 .json (Data)</p>
+                    <p class="text-xs text-slate-400 mt-1">최신 CSV 구조(18개 열) 지원</p>
                     <input type="file" id="convertInput" class="hidden" accept=".csv,.json">
                 </div>
 
                 <div class="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                    <p class="text-xs text-blue-700 font-bold mb-2">✅ 자동 필드 매핑 안내</p>
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-blue-600">
-                        <span>• 질문: question → <b>q</b></span>
-                        <span>• 이미지: image_url → <b>imgUrl</b></span>
-                        <span>• 정답: correct_index → <b>correct</b></span>
-                        <span>• 외부링크: <b>eurl</b></span>
-                        <span>• 해설: explanation → <b>exp</b></span>
+                    <p class="text-xs text-blue-700 font-bold mb-2">✅ 확장된 필드 매핑 안내</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-[10px] text-blue-600 font-medium">
+                        <span>• 질문: <b class="text-blue-900">q</b></span>
+                        <span>• 정답: <b class="text-blue-900">correct</b></span>
+                        <span>• 해설: <b class="text-blue-900">exp</b></span>
+                        <span>• 이미지: <b class="text-blue-900">imgUrl</b></span>
+                        <span>• 링크: <b class="text-blue-900">eurl</b></span>
+                        <span>• 소분류: <b class="text-blue-900">subcat</b></span>
+                        <span>• 챕터: <b class="text-blue-900">ch</b></span>
+                        <span>• 중요도: <b class="text-blue-900">imp</b></span>
+                        <span>• 문항번호: <b class="text-blue-900">eq</b></span>
+                        <span>• 옵션: options (배열)</span>
                     </div>
                 </div>
             </div>
@@ -111,7 +116,6 @@
     <script>
         let currentResultData = null;
         let currentResultType = 'json';
-        let mergePool = [];
 
         function switchTab(tab) {
             const convert = document.getElementById('section-convert');
@@ -136,7 +140,6 @@
             }
         }
 
-        // CSV 파서 (RFC 4180 준수)
         function parseCSV(text) {
             const result = [];
             let row = [];
@@ -164,14 +167,11 @@
             return result;
         }
 
-        // 강력한 JSON 파서 (수식 내 백슬래시 처리)
         function robustJsonParse(str) {
             str = str.trim().replace(/^\ufeff/, "");
             try {
                 return JSON.parse(str);
             } catch (e) {
-                console.warn("표준 파싱 실패, 교정 시도...");
-                // 모든 백슬래시를 이중화한 뒤 유효한 이스케이프만 복구
                 let fixed = str.replace(/\\/g, "\\\\")
                                .replace(/\\\\"/g, "\\\"")
                                .replace(/\\\\n/g, "\\n")
@@ -181,22 +181,32 @@
             }
         }
 
-        // JSON to CSV 변환 (BOM 포함)
         function jsonToCSV(json) {
             if (!json || json.length === 0) return "";
-            const headers = ["id", "year", "session", "category", "q", "options__001", "options__002", "options__003", "options__004", "correct", "exp", "imgUrl", "eurl"];
+            // 확장된 헤더 구성 (총 18개 필드)
+            const headers = ["no", "id", "year", "session", "category", "q", "options__001", "options__002", "options__003", "options__004", "correct", "exp", "imgUrl", "eurl", "subcat", "ch", "imp", "eq"];
+            
             const rows = json.map(item => {
-                const q = item.q || item.question || "";
                 const opts = item.options || [];
-                const exp = item.exp || item.explanation || "";
-                const img = item.imgUrl || item.image_url || "";
-                const eurl = item.eurl || "";
-                const correct = item.correct !== undefined ? item.correct : (item.correct_index !== undefined ? item.correct_index : 0);
-                
                 return [
-                    item.id, item.year, item.session, item.category, q,
-                    opts[0] || "", opts[1] || "", opts[2] || "", opts[3] || "",
-                    correct, exp, img, eurl
+                    item.no || "",
+                    item.id || "",
+                    item.year || "",
+                    item.session || "",
+                    item.category || "",
+                    item.q || item.question || "",
+                    opts[0] || "",
+                    opts[1] || "",
+                    opts[2] || "",
+                    opts[3] || "",
+                    item.correct !== undefined ? item.correct : (item.correct_index !== undefined ? item.correct_index : 0),
+                    item.exp || item.explanation || "",
+                    item.imgUrl || item.image_url || "",
+                    item.eurl || "",
+                    item.subcat || "",
+                    item.ch || "",
+                    item.imp || "",
+                    item.eq || ""
                 ].map(val => `"${String(val || "").replace(/"/g, '""')}"`).join(",");
             });
             return "\uFEFF" + headers.join(",") + "\n" + rows.join("\n");
@@ -210,32 +220,46 @@
                 const content = ev.target.result;
                 if (file.name.toLowerCase().endsWith('.csv')) {
                     const rows = parseCSV(content);
+                    if (rows.length < 2) return;
+                    
                     const header = rows[0].map(h => h.toLowerCase().trim());
                     const getIdx = (name) => header.indexOf(name);
                     
                     const idx = {
-                        id: getIdx('id'), year: getIdx('year'), session: getIdx('session'),
+                        no: getIdx('no'), id: getIdx('id'), year: getIdx('year'), session: getIdx('session'),
                         cat: getIdx('category'), q: getIdx('q'), 
                         o1: getIdx('options__001'), o2: getIdx('options__002'),
                         o3: getIdx('options__003'), o4: getIdx('options__004'),
                         cor: getIdx('correct'), exp: getIdx('exp'), 
-                        img: getIdx('imgurl'), eurl: getIdx('eurl')
+                        img: getIdx('imgurl'), eurl: getIdx('eurl'),
+                        sub: getIdx('subcat'), ch: getIdx('ch'),
+                        imp: getIdx('imp'), eq: getIdx('eq')
                     };
 
                     const data = rows.slice(1).map((r, i) => {
-                        if (!r[idx.q]) return null;
+                        const questionText = r[idx.q] || "";
+                        if (!questionText.trim()) return null;
+
                         const item = {
-                            id: r[idx.id] || (i + 1),
+                            no: r[idx.no] || (i + 1),
+                            id: r[idx.id] || "",
                             year: r[idx.year] || "",
                             session: r[idx.session] || "",
                             category: r[idx.cat] || "",
-                            q: r[idx.q].trim(),
+                            q: questionText.trim(),
                             options: [r[idx.o1] || "", r[idx.o2] || "", r[idx.o3] || "", r[idx.o4] || ""],
                             correct: parseInt(r[idx.cor]) || 0,
-                            exp: (r[idx.exp] || "").replace(/\[\d+\]$/, "").trim(),
-                            imgUrl: r[idx.img] || "",
-                            eurl: idx.eurl !== -1 ? r[idx.eurl] || "" : ""
+                            exp: (r[idx.exp] || "").trim()
                         };
+
+                        // 추가 필드들 선택적 매핑
+                        if (idx.img !== -1 && r[idx.img]) item.imgUrl = r[idx.img].trim();
+                        if (idx.eurl !== -1 && r[idx.eurl]) item.eurl = r[idx.eurl].trim();
+                        if (idx.sub !== -1 && r[idx.sub]) item.subcat = r[idx.sub].trim();
+                        if (idx.ch !== -1 && r[idx.ch]) item.ch = r[idx.ch].trim();
+                        if (idx.imp !== -1 && r[idx.imp]) item.imp = r[idx.imp].trim();
+                        if (idx.eq !== -1 && r[idx.eq]) item.eq = r[idx.eq].trim();
+                        
                         return item;
                     }).filter(x => x !== null);
 
@@ -264,12 +288,9 @@
         document.getElementById('mergeInput').addEventListener('change', function(e) {
             const files = Array.from(e.target.files);
             if (files.length === 0) return;
-            
-            const listArea = document.getElementById('fileListArea');
             const items = document.getElementById('fileItems');
             items.innerHTML = "";
-            listArea.classList.remove('hidden');
-            
+            document.getElementById('fileListArea').classList.remove('hidden');
             files.forEach(f => {
                 const div = document.createElement('div');
                 div.className = "flex items-center justify-between bg-slate-50 p-2 rounded text-[11px]";
@@ -281,16 +302,15 @@
         document.getElementById('startMergeBtn').addEventListener('click', async function() {
             const files = document.getElementById('mergeInput').files;
             if (files.length === 0) return;
-
             let combined = [];
             for (const file of files) {
                 const text = await file.text();
                 try {
                     const json = robustJsonParse(text);
-                    combined = combined.concat(json);
+                    if (Array.isArray(json)) combined = combined.concat(json);
+                    else combined.push(json);
                 } catch(e) { console.error(`${file.name} 처리 실패`, e); }
             }
-
             document.getElementById('mergedTotal').textContent = combined.length.toLocaleString();
             document.getElementById('mergeResult').classList.remove('hidden');
             currentResultData = JSON.stringify(combined, null, 2);
@@ -304,24 +324,26 @@
             setTimeout(() => toast.classList.add('hidden'), 3000);
         }
 
-        const copyAction = (id) => {
+        const copyAction = () => {
+            if (!currentResultData) return;
             const el = document.createElement('textarea');
             el.value = currentResultData;
             document.body.appendChild(el);
             el.select();
             document.execCommand('copy');
             document.body.removeChild(el);
-            showToast("클립보드에 복사되었습니다.");
+            showToast("복사 완료!");
         };
 
         const downloadAction = (ext) => {
+            if (!currentResultData) return;
             const blob = new Blob([currentResultData], { type: ext === 'json' ? 'application/json' : 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `aircraft_data_${new Date().getTime()}.${ext}`;
             a.click();
-            showToast("파일이 저장되었습니다.");
+            showToast("다운로드 시작!");
         };
 
         document.getElementById('copyBtn').addEventListener('click', copyAction);
